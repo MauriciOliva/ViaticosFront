@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useViaticosStore } from '../../hooks/ViaticosHook';
 import { ViaticosForm } from '../Forms/ViaticoForm';
 import { FiltrosViaticos } from '../atomos/filtroViaticos';
+import { formatearFechaParaMostrar } from '../../services/fechaUtils';
 
 export const ViaticosList = () => {
   const { 
@@ -54,15 +55,10 @@ export const ViaticosList = () => {
   }, [viaticos]);
 
   const formatFecha = (fecha) => {
-    return new Date(fecha).toLocaleDateString('es-GT', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  if (!fecha) return 'Fecha no especificada';
+    return formatearFechaParaMostrar(fecha);
   };
-
+  
   const getColorDiferencia = (diferencia) => {
     return diferencia >= 0 ? 'text-green-600' : 'text-red-600';
   };

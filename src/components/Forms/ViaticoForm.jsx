@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react'; 
 import { useViaticosStore } from '../../hooks/ViaticosHook';
 import { SignatureCanvas } from '../atomos/signatureCanvas';
+import { DateTimeInput } from '../../services/DateTimeInnput';
+import { 
+  fechaParaInput, 
+  inputParaFecha, 
+  fechaActualGuatemala,
+  validarFechas 
+} from '../../services/fechaUtils.js';
 
 export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => { 
   const { createViaticoWithImages, updateViatico, isLoading } = useViaticosStore(); 
@@ -10,8 +17,8 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
   const [formData, setFormData] = useState({
     NombreTecnico: '',
     Telefono: '',
-    FechaEntrada: '',
-    FechaSalida: '',
+    FechaEntrada: null,
+    FechaSalida: null,
     Cliente: '',
     Movilizacion: [],
     Hospedaje: { monto: '', nombre: '' },
@@ -35,42 +42,78 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
 
   useEffect(() => {
     if (viaticoExistente) {
-    console.log('📝 Cargando datos del viático para editar:', viaticoExistente);
-    const formatDateForInput = (dateString) => {
-    if (!dateString) return '';
-    
-    const date = new Date(dateString);
-    
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-    
-    setFormData({
-      NombreTecnico: viaticoExistente.NombreTecnico || '',
-      Telefono: viaticoExistente.Telefono || '',
-      FechaEntrada: formatDateForInput(viaticoExistente.FechaEntrada),
-      FechaSalida: formatDateForInput(viaticoExistente.FechaSalida),
-      Cliente: viaticoExistente.Cliente || '',
-      Movilizacion: viaticoExistente.Movilizacion || [],
-      Hospedaje: viaticoExistente.Hospedaje || { monto: '', nombre: '' },
-      Comida: viaticoExistente.Comida || { monto: '', tipo: 'Desayuno' },
-      Ubicacion: viaticoExistente.Ubicacion || '',
-      MontoDado: viaticoExistente.MontoDado || '',
-      FotoURL: viaticoExistente.FotoURL || ''
-    });
+      console.log('📝 Cargando datos del viático para editar:', viaticoExistente);
+      
+      // ✅ ELIMINAR la función formatDateForInput de aquí y usar directamente
+      setFormData({
+        NombreTecnico: viaticoExistente.NombreTecnico || '',
+        Telefono: viaticoExistente.Telefono || '',
+        // ✅ Usar las fechas directamente - el DateTimeInput se encargará de la conversión
+        FechaEntrada: viaticoExistente.FechaEntrada ? new Date(viaticoExistente.FechaEntrada) : null,
+        FechaSalida: viaticoExistente.FechaSalida ? new Date(viaticoExistente.FechaSalida) : null,
+        Cliente: viaticoExistente.Cliente || '',
+        Movilizacion: viaticoExistente.Movilizacion || [],
+        Hospedaje: viaticoExistente.Hospedaje || { monto: '', nombre: '' },
+        Comida: viaticoExistente.Comida || { monto: '', tipo: 'Desayuno' },
+        Ubicacion: viaticoExistente.Ubicacion || '',
+        MontoDado: viaticoExistente.MontoDado || '',
+        FotoURL: viaticoExistente.FotoURL || ''
+      });
 
-    setExistingFiles(viaticoExistente.Fotos || []);
-    setSignature(viaticoExistente.Firma || null);
-  }
+      setExistingFiles(viaticoExistente.Fotos || []);
+      setSignature(viaticoExistente.Firma || null);
+    }
   }, [viaticoExistente]);
 
   const handleSignatureSave = (signatureData) => {
     setSignature(signatureData);
+  };
+
+  useEffect(() => {
+    if (!viaticoExistente && !formData.FechaEntrada) {
+      const ahora = fechaActualGuatemala();
+      const mañana = new Date(ahora);
+      mañana.setDate(mañana.getDate() + 1);
+      
+      setFormData(prev => ({
+        ...prev,
+        FechaEntrada: ahora,
+        FechaSalida: mañana
+      }));
+    }
+  }, [viaticoExistente, formData.FechaEntrada]);
+  
+  const manejarCambioFecha = (campo, valor) => {
+    setFormData(prev => ({
+      ...prev,
+      [campo]: valor
+    }));
+    
+    // Limpiar error si existe
+    if (errors[campo]) {
+      setErrors(prev => ({ ...prev, [campo]: '' }));
+    }
+    
+    // Validar que fecha de salida sea posterior a entrada
+    if (campo === 'FechaEntrada' && formData.FechaSalida) {
+      if (!validarFechas(valor, formData.FechaSalida)) {
+        setErrors(prev => ({ 
+          ...prev, 
+          FechaSalida: 'La fecha de salida debe ser posterior a la fecha de entrada' 
+        }));
+      }
+    }
+    
+    if (campo === 'FechaSalida' && formData.FechaEntrada) {
+      if (!validarFechas(formData.FechaEntrada, valor)) {
+        setErrors(prev => ({ 
+          ...prev, 
+          FechaSalida: 'La fecha de salida debe ser posterior a la fecha de entrada' 
+        }));
+      } else if (errors.FechaSalida) {
+        setErrors(prev => ({ ...prev, FechaSalida: '' }));
+      }
+    }
   };
 
   const handleSignatureClear = () => {
@@ -201,8 +244,8 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
       
       formDataToSend.append('NombreTecnico', formData.NombreTecnico);
       formDataToSend.append('Telefono', parseInt(formData.Telefono));
-      formDataToSend.append('FechaEntrada', formData.FechaEntrada);
-      formDataToSend.append('FechaSalida', formData.FechaSalida);
+      formDataToSend.append('FechaEntrada', formData.FechaEntrada ? formData.FechaEntrada.toISOString() : '');
+      formDataToSend.append('FechaSalida', formData.FechaSalida ? formData.FechaSalida.toISOString() : '');
       formDataToSend.append('Cliente', formData.Cliente);
       formDataToSend.append('Ubicacion', formData.Ubicacion);
       formDataToSend.append('MontoDado', parseFloat(formData.MontoDado));
@@ -313,33 +356,22 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
 
             {/* Fechas */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fecha de Entrada *
-                </label>
-                <input
-                  type="datetime-local"
-                  name="FechaEntrada"
-                  value={formData.FechaEntrada}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md ${errors.FechaEntrada ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {errors.FechaEntrada && <p className="text-red-500 text-sm mt-1">{errors.FechaEntrada}</p>}
-              </div>
+              <DateTimeInput
+                label="Fecha de Entrada *"
+                value={formData.FechaEntrada}
+                onChange={(valor) => manejarCambioFecha('FechaEntrada', valor)}
+                required={true}
+                error={errors.FechaEntrada}
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fecha de Salida *
-                </label>
-                <input
-                  type="datetime-local"
-                  name="FechaSalida"
-                  value={formData.FechaSalida}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md ${errors.FechaSalida ? 'border-red-500' : 'border-gray-300'}`}
-                />
-                {errors.FechaSalida && <p className="text-red-500 text-sm mt-1">{errors.FechaSalida}</p>}
-              </div>
+              <DateTimeInput
+                label="Fecha de Salida *"
+                value={formData.FechaSalida}
+                onChange={(valor) => manejarCambioFecha('FechaSalida', valor)}
+                required={true}
+                error={errors.FechaSalida}
+                min={formData.FechaEntrada ? fechaParaInput(formData.FechaEntrada) : undefined}
+              />
             </div>
 
             {/* Cliente y Ubicación */}
