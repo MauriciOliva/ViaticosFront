@@ -398,7 +398,6 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
                     <option value="Desayuno">Desayuno</option>
                     <option value="Almuerzo">Almuerzo</option>
                     <option value="Cena">Cena</option>
-                    <option value="Refrigerio">Refrigerio</option>
                   </select>
                 </div>
               </div>
