@@ -37,15 +37,18 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
     if (viaticoExistente) {
     console.log('📝 Cargando datos del viático para editar:', viaticoExistente);
     const formatDateForInput = (dateString) => {
-      if (!dateString) return '';
-      
-      const date = new Date(dateString);
-      
-      const offset = date.getTimezoneOffset() * 60000;
-      const localDate = new Date(date.getTime() - offset);
-      
-      return localDate.toISOString().slice(0, 16);
-    };
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
     
     setFormData({
       NombreTecnico: viaticoExistente.NombreTecnico || '',
@@ -248,12 +251,11 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
   };
 
   const calcularTotalGastado = () => {
-    const movilizacion = parseFloat(formData.Movilizacion.monto) || 0;
+    const movilizacion = calcularTotalMovilizacion(); // ✅ Usar la función que ya tienes
     const hospedaje = parseFloat(formData.Hospedaje.monto) || 0;
     const comida = parseFloat(formData.Comida.monto) || 0;
     return movilizacion + hospedaje + comida;
   };
-
   const calcularDiferencia = () => {
     const montoDado = parseFloat(formData.MontoDado) || 0;
     return montoDado - calcularTotalGastado();
@@ -555,33 +557,19 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
             </div>
 
             {/* Monto Dado y Resumen */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Monto Dado *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="MontoDado"
-                  value={formData.MontoDado}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md ${errors.MontoDado ? 'border-red-500' : 'border-gray-300'}`}
-                  placeholder="0.00"
-                />
-                {errors.MontoDado && <p className="text-red-500 text-sm mt-1">{errors.MontoDado}</p>}
-              </div>
-
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-blue-800 mb-2">Resumen</h4>
-                <div className="space-y-1 text-sm">
-                  <p>Total Gastado: <strong>Q{calcularTotalGastado().toFixed(2)}</strong></p>
-                  <p>Diferencia: 
-                    <strong className={calcularDiferencia() >= 0 ? 'text-green-600' : 'text-red-600'}>
-                      Q{Math.abs(calcularDiferencia()).toFixed(2)} {calcularDiferencia() >= 0 ? '(Ahorro)' : '(Sobregasto)'}
-                    </strong>
-                  </p>
-                </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-semibold text-blue-800 mb-2">Resumen</h4>
+              <div className="space-y-1 text-sm">
+                <p>Total Movilización: <strong>Q{calcularTotalMovilizacion().toFixed(2)}</strong></p>
+                <p>Total Hospedaje: <strong>Q{(parseFloat(formData.Hospedaje.monto) || 0).toFixed(2)}</strong></p>
+                <p>Total Comida: <strong>Q{(parseFloat(formData.Comida.monto) || 0).toFixed(2)}</strong></p>
+                <p className="font-medium border-t pt-1">Total Gastado: <strong>Q{calcularTotalGastado().toFixed(2)}</strong></p>
+                <p className="font-medium">
+                  Diferencia: 
+                  <strong className={calcularDiferencia() >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    Q{Math.abs(calcularDiferencia()).toFixed(2)} {calcularDiferencia() >= 0 ? '(Ahorro)' : '(Sobregasto)'}
+                  </strong>
+                </p>
               </div>
             </div>
 
