@@ -243,7 +243,26 @@ export const ViaticosList = () => {
                 
                 <div className="bg-gray-50 p-3 rounded">
                   <label className="font-medium text-gray-700">Movilización:</label>
-                  <p className="text-gray-900">Q{viatico.Movilizacion?.monto?.toFixed(2)} - {viatico.Movilizacion?.tipo}</p>
+                  {viatico.Movilizacion && viatico.Movilizacion.length > 0 ? (
+                    <div className="mt-2 space-y-2">
+                      {viatico.Movilizacion.map((mov, index) => (
+                        <div key={index} className="text-sm">
+                          <span className="font-medium">{mov.tipo}:</span>
+                          {mov.descripcion && <span> - {mov.descripcion}</span>}
+                          <div className="text-gray-600">
+                            Ida: Q{mov.montoIda?.toFixed(2)} | Vuelta: Q{mov.montoVuelta?.toFixed(2)} | 
+                            Total: Q{((mov.montoIda || 0) + (mov.montoVuelta || 0)).toFixed(2)}
+                          </div>
+                        </div>
+                      ))}
+                      <div className="font-medium mt-2">
+                        Total Movilización: Q{viatico.Movilizacion.reduce((total, mov) => 
+                          total + (mov.montoIda || 0) + (mov.montoVuelta || 0), 0).toFixed(2)}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-900">No especificado</p>
+                  )}
                 </div>
                 
                 <div className="bg-gray-50 p-3 rounded">
@@ -520,12 +539,12 @@ export const ViaticosList = () => {
         <ViaticoDetailsModal
           viatico={selectedViatico}
           onClose={() => setShowDetails(false)}
-          onEdit={handleEditViatico} // ✅ NUEVO: Pasar función de edición
-          onDelete={handleDeleteViatico} // ✅ NUEVO: Pasar función de eliminación
+          onEdit={handleEditViatico} 
+          onDelete={handleDeleteViatico} 
         />
       )}
 
-      {/* ✅ NUEVO: Modal de Confirmación de Eliminación */}
+      {/* Modal de Confirmación de Eliminación */}
       {deletingViatico && (
         <DeleteConfirmationModal
           viatico={deletingViatico}

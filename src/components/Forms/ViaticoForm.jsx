@@ -13,7 +13,7 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
     FechaEntrada: '',
     FechaSalida: '',
     Cliente: '',
-    Movilizacion: { monto: '', tipo: 'Bus' },
+    Movilizacion: [],
     Hospedaje: { monto: '', nombre: '' },
     Comida: { monto: '', tipo: 'Desayuno' },
     Ubicacion: '',
@@ -26,6 +26,13 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
   const [signature, setSignature] = useState(null);
   const [errors, setErrors] = useState({});
 
+  const [nuevaMovilizacion, setNuevaMovilizacion] = useState({
+    tipo: 'Bus',
+    montoIda: '',
+    montoVuelta: '',
+    descripcion: ''
+  });
+
   useEffect(() => {
     if (viaticoExistente) {
       console.log('📝 Cargando datos del viático para editar:', viaticoExistente);
@@ -36,7 +43,7 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
         FechaEntrada: viaticoExistente.FechaEntrada ? new Date(viaticoExistente.FechaEntrada).toISOString().slice(0, 16) : '',
         FechaSalida: viaticoExistente.FechaSalida ? new Date(viaticoExistente.FechaSalida).toISOString().slice(0, 16) : '',
         Cliente: viaticoExistente.Cliente || '',
-        Movilizacion: viaticoExistente.Movilizacion || { monto: '', tipo: 'Bus' },
+        Movilizacion: viaticoExistente.Movilizacion || [],
         Hospedaje: viaticoExistente.Hospedaje || { monto: '', nombre: '' },
         Comida: viaticoExistente.Comida || { monto: '', tipo: 'Desayuno' },
         Ubicacion: viaticoExistente.Ubicacion || '',
@@ -56,6 +63,35 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
   const handleSignatureClear = () => {
     setSignature(null);
   };
+
+  const agregarMovilizacion = () => {
+    if (!nuevaMovilizacion.tipo || !nuevaMovilizacion.montoIda || !nuevaMovilizacion.montoVuelta) {
+      alert('Por favor complete todos los campos de movilización');
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      Movilizacion: [...prev.Movilizacion, { ...nuevaMovilizacion }]
+    }));
+
+    // Resetear formulario de nueva movilización
+    setNuevaMovilizacion({
+      tipo: 'Bus',
+      montoIda: '',
+      montoVuelta: '',
+      descripcion: ''
+    });
+  };
+
+  const eliminarMovilizacion = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      Movilizacion: prev.Movilizacion.filter((_, i) => i !== index)
+    }));
+  };
+
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -100,6 +136,20 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
     setExistingFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const calcularTotalMovilizacion = () => {
+    return formData.Movilizacion.reduce((total, mov) => {
+      return total + (parseFloat(mov.montoIda) || 0) + (parseFloat(mov.montoVuelta) || 0);
+    }, 0);
+  };
+
+  const handleMovilizacionChange = (e) => {
+    const { name, value } = e.target;
+    setNuevaMovilizacion(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const validateForm = () => {
     const newErrors = {};
     
@@ -111,7 +161,10 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
     if (!formData.Ubicacion) newErrors.Ubicacion = 'Ubicación es requerida';
     if (!formData.MontoDado) newErrors.MontoDado = 'Monto dado es requerido';
     
-    if (!formData.Movilizacion.monto) newErrors['Movilizacion.monto'] = 'Monto de movilización es requerido';
+    if (formData.Movilizacion.length === 0) {
+      newErrors['Movilizacion'] = 'Debe agregar al menos un medio de movilización';
+    }
+
     if (!formData.Hospedaje.monto) newErrors['Hospedaje.monto'] = 'Monto de hospedaje es requerido';
     if (!formData.Hospedaje.nombre) newErrors['Hospedaje.nombre'] = 'Nombre de hospedaje es requerido';
     if (!formData.Comida.monto) newErrors['Comida.monto'] = 'Monto de comida es requerido';
@@ -141,10 +194,7 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
       formDataToSend.append('Ubicacion', formData.Ubicacion);
       formDataToSend.append('MontoDado', parseFloat(formData.MontoDado));
 
-      formDataToSend.append('Movilizacion', JSON.stringify({
-        monto: parseFloat(formData.Movilizacion.monto),
-        tipo: formData.Movilizacion.tipo
-      }));
+      formDataToSend.append('Movilizacion', JSON.stringify(formData.Movilizacion));
       
       formDataToSend.append('Hospedaje', JSON.stringify({
         monto: parseFloat(formData.Hospedaje.monto),
@@ -315,92 +365,119 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
 
             {/* Gastos */}
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Gastos del Viático</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Movilización - Múltiples Medios
+                {errors.Movilizacion && <span className="text-red-500 text-sm ml-2">({errors.Movilizacion})</span>}
+              </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Movilización */}
+              {/* Formulario para agregar nueva movilización */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 bg-white rounded border">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Movilización *
+                    Medio de Transporte *
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="Movilizacion.monto"
-                    value={formData.Movilizacion.monto}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-md ${errors['Movilizacion.monto'] ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="0.00"
-                  />
-                  {errors['Movilizacion.monto'] && <p className="text-red-500 text-sm mt-1">{errors['Movilizacion.monto']}</p>}
-                  
                   <select
-                    name="Movilizacion.tipo"
-                    value={formData.Movilizacion.tipo}
-                    onChange={handleChange}
-                    className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md"
+                    name="tipo"
+                    value={nuevaMovilizacion.tipo}
+                    onChange={handleMovilizacionChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   >
                     <option value="Bus">Bus</option>
+                    <option value="VehiculoPersonal">Vehículo Personal</option>
+                    <option value="Tuc-Tuc">Tuc-Tuc</option>
+                    <option value="Uber">Uber</option>
                     <option value="Taxi">Taxi</option>
-                    <option value="Vehiculo propio">Vehículo propio</option>
+                    <option value="Mototaxi">Mototaxi</option>
+                    <option value="Bicicleta">Bicicleta</option>
+                    <option value="Caminata">Caminata</option>
+                    <option value="Otro">Otro</option>
                   </select>
                 </div>
 
-                {/* Hospedaje */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hospedaje *
+                    Monto Ida (Q) *
                   </label>
                   <input
                     type="number"
                     step="0.01"
-                    name="Hospedaje.monto"
-                    value={formData.Hospedaje.monto}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-md ${errors['Hospedaje.monto'] ? 'border-red-500' : 'border-gray-300'}`}
+                    name="montoIda"
+                    value={nuevaMovilizacion.montoIda}
+                    onChange={handleMovilizacionChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     placeholder="0.00"
                   />
-                  {errors['Hospedaje.monto'] && <p className="text-red-500 text-sm mt-1">{errors['Hospedaje.monto']}</p>}
-                  
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monto Vuelta (Q) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="montoVuelta"
+                    value={nuevaMovilizacion.montoVuelta}
+                    onChange={handleMovilizacionChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={agregarMovilizacion}
+                    className="w-full bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700"
+                  >
+                    + Agregar
+                  </button>
+                </div>
+
+                <div className="md:col-span-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descripción (Opcional)
+                  </label>
                   <input
                     type="text"
-                    name="Hospedaje.nombre"
-                    value={formData.Hospedaje.nombre}
-                    onChange={handleChange}
-                    className={`w-full mt-2 px-3 py-2 border rounded-md ${errors['Hospedaje.nombre'] ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="Nombre del hotel"
+                    name="descripcion"
+                    value={nuevaMovilizacion.descripcion}
+                    onChange={handleMovilizacionChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    placeholder="Ej: Bus a centro, luego Tuc-Tuc al sitio"
                   />
-                  {errors['Hospedaje.nombre'] && <p className="text-red-500 text-sm mt-1">{errors['Hospedaje.nombre']}</p>}
-                </div>
-
-                {/* Comida */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Comida *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="Comida.monto"
-                    value={formData.Comida.monto}
-                    onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-md ${errors['Comida.monto'] ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="0.00"
-                  />
-                  {errors['Comida.monto'] && <p className="text-red-500 text-sm mt-1">{errors['Comida.monto']}</p>}
-                  
-                  <select
-                    name="Comida.tipo"
-                    value={formData.Comida.tipo}
-                    onChange={handleChange}
-                    className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="Desayuno">Desayuno</option>
-                    <option value="Almuerzo">Almuerzo</option>
-                    <option value="Cena">Cena</option>
-                  </select>
                 </div>
               </div>
+
+              {/* Lista de movilizaciones agregadas */}
+              {formData.Movilizacion.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="font-medium text-gray-700 mb-2">Medios de Movilización Agregados:</h4>
+                  <div className="space-y-2">
+                    {formData.Movilizacion.map((mov, index) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-white rounded border">
+                        <div>
+                          <span className="font-medium">{mov.tipo}</span>
+                          {mov.descripcion && <span className="text-sm text-gray-600 ml-2">- {mov.descripcion}</span>}
+                          <div className="text-sm text-gray-500">
+                            Ida: Q{parseFloat(mov.montoIda).toFixed(2)} | Vuelta: Q{parseFloat(mov.montoVuelta).toFixed(2)} | Total: Q{(parseFloat(mov.montoIda) + parseFloat(mov.montoVuelta)).toFixed(2)}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => eliminarMovilizacion(index)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          × Eliminar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-sm font-medium text-gray-700">
+                    Total Movilización: Q{calcularTotalMovilizacion().toFixed(2)}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Monto Dado y Resumen */}
