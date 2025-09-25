@@ -35,25 +35,35 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
 
   useEffect(() => {
     if (viaticoExistente) {
-      console.log('📝 Cargando datos del viático para editar:', viaticoExistente);
+    console.log('📝 Cargando datos del viático para editar:', viaticoExistente);
+    const formatDateForInput = (dateString) => {
+      if (!dateString) return '';
       
-      setFormData({
-        NombreTecnico: viaticoExistente.NombreTecnico || '',
-        Telefono: viaticoExistente.Telefono || '',
-        FechaEntrada: viaticoExistente.FechaEntrada ? new Date(viaticoExistente.FechaEntrada).toISOString().slice(0, 16) : '',
-        FechaSalida: viaticoExistente.FechaSalida ? new Date(viaticoExistente.FechaSalida).toISOString().slice(0, 16) : '',
-        Cliente: viaticoExistente.Cliente || '',
-        Movilizacion: viaticoExistente.Movilizacion || [],
-        Hospedaje: viaticoExistente.Hospedaje || { monto: '', nombre: '' },
-        Comida: viaticoExistente.Comida || { monto: '', tipo: 'Desayuno' },
-        Ubicacion: viaticoExistente.Ubicacion || '',
-        MontoDado: viaticoExistente.MontoDado || '',
-        FotoURL: viaticoExistente.FotoURL || ''
-      });
+      const date = new Date(dateString);
+      
+      const offset = date.getTimezoneOffset() * 60000;
+      const localDate = new Date(date.getTime() - offset);
+      
+      return localDate.toISOString().slice(0, 16);
+    };
+    
+    setFormData({
+      NombreTecnico: viaticoExistente.NombreTecnico || '',
+      Telefono: viaticoExistente.Telefono || '',
+      FechaEntrada: formatDateForInput(viaticoExistente.FechaEntrada),
+      FechaSalida: formatDateForInput(viaticoExistente.FechaSalida),
+      Cliente: viaticoExistente.Cliente || '',
+      Movilizacion: viaticoExistente.Movilizacion || [],
+      Hospedaje: viaticoExistente.Hospedaje || { monto: '', nombre: '' },
+      Comida: viaticoExistente.Comida || { monto: '', tipo: 'Desayuno' },
+      Ubicacion: viaticoExistente.Ubicacion || '',
+      MontoDado: viaticoExistente.MontoDado || '',
+      FotoURL: viaticoExistente.FotoURL || ''
+    });
 
-      setExistingFiles(viaticoExistente.Fotos || []);
-      setSignature(viaticoExistente.Firma || null);
-    }
+    setExistingFiles(viaticoExistente.Fotos || []);
+    setSignature(viaticoExistente.Firma || null);
+  }
   }, [viaticoExistente]);
 
   const handleSignatureSave = (signatureData) => {
