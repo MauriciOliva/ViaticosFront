@@ -52,11 +52,15 @@ export class ExcelService {
     // ✅ ENCABEZADOS DE COLUMNAS
     const headers = [
       'TÉCNICO', 'TELÉFONO', 'CLIENTE', 'UBICACIÓN', 
-      'FECHA ENTRADA', 'FECHA SALIDA', 'MOVILIZACIÓN', 'TIPO MOV.',
+      'FECHA ENTRADA', 'FECHA SALIDA', 
+      'TOTAL MOVILIZACIÓN', 
+      'DETALLE MOVILIZACIÓN',
       'HOSPEDAJE', 'LUGAR HOSP.', 'COMIDA', 'TIPO COMIDA',
       'MONTO DADO', 'MONTO GASTADO', 'DIFERENCIA', 'ESTADO',
       'FIRMA', 'FOTO 1', 'FOTO 2', 'FOTO 3', 'FOTO 4', 'FOTO 5'
     ];
+
+    
 
     const headerRow = worksheet.getRow(currentRow);
     headers.forEach((header, index) => {
@@ -86,6 +90,8 @@ export class ExcelService {
       const montoGastado = viatico.Montogastado || 0;
       const diferencia = montoDado - montoGastado;
       const estado = diferencia >= 0 ? 'AHORRO' : 'SOBREGASTO';
+      const totalMovilizacion = this.calcularTotalMovilizacion(viatico);
+      const detalleMovilizacion = this.obtenerDetalleMovilizacion(viatico);
 
       const datos = [
         viatico.NombreTecnico || '',
@@ -94,8 +100,8 @@ export class ExcelService {
         viatico.Ubicacion || '',
         viatico.FechaEntrada ? dayjs(viatico.FechaEntrada).format('DD/MM/YYYY HH:mm') : '',
         viatico.FechaSalida ? dayjs(viatico.FechaSalida).format('DD/MM/YYYY HH:mm') : '',
-        viatico.Movilizacion?.monto || 0,
-        viatico.Movilizacion?.tipo || '',
+        totalMovilizacion, 
+        detalleMovilizacion,
         viatico.Hospedaje?.monto || 0,
         viatico.Hospedaje?.nombre || '',
         viatico.Comida?.monto || 0,
@@ -104,8 +110,8 @@ export class ExcelService {
         montoGastado,
         Math.abs(diferencia),
         estado,
-        '', // Firma (se llena con imagen)
-        '', '', '', '', '' // Fotos (se llenan con imágenes)
+        '', 
+        '', '', '', '', '' 
       ];
 
       // ✅ LLENAR DATOS BÁSICOS
@@ -168,6 +174,27 @@ export class ExcelService {
 
     // ✅ TOTALES AL FINAL
     this.agregarTotalesSimple(worksheet, currentRow, viaticos);
+  }
+
+  static calcularTotalMovilizacion(viatico) {
+    if (!viatico.Movilizacion || !Array.isArray(viatico.Movilizacion)) return 0;
+
+    return viatico.Movilizacion.reduce((total, mov) => {
+      const ida = parseFloat(mov.montoIda) || 0;
+      const vuelta = parseFloat(mov.montoVuelta) || 0;
+      return total + ida + vuelta;
+    }, 0);
+  }
+
+  static obtenerDetalleMovilizacion(viatico) {
+    if (!viatico.Movilizacion || !Array.isArray(viatico.Movilizacion)) return '';
+    
+    return viatico.Movilizacion.map(mov => {
+      const ida = parseFloat(mov.montoIda) || 0;
+      const vuelta = parseFloat(mov.montoVuelta) || 0;
+      const totalMov = ida + vuelta;
+      return `${mov.tipo}: Q${totalMov.toFixed(2)}${mov.descripcion ? ` (${mov.descripcion})` : ''}`;
+    }).join('; ');
   }
 
   static crearEncabezadoSimple(worksheet, totalRegistros, filters) {
