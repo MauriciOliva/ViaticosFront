@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'; 
 import { useViaticosStore } from '../../hooks/ViaticosHook';
 import { SignatureCanvas } from '../atomos/signatureCanvas';
-import { DateTimeInput } from '../../services/DateTimeInput';
+import { DateTimeInput } from '../../services/DateTimeInput.jsx';
 import { 
   fechaParaInput, 
   inputParaFecha, 
