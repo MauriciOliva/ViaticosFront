@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'; 
 import { useViaticosStore } from '../../hooks/ViaticosHook';
 import { SignatureCanvas } from '../atomos/signatureCanvas';
-import { DateTimeInput } from '../../services/DateTimeInnput';
+import { DateTimeInput } from '../../services/DateTimeInput';
 import { 
   fechaParaInput, 
   inputParaFecha, 
@@ -24,7 +24,7 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
     Hospedaje: { monto: '', nombre: '' },
     Comida: { monto: '', tipo: 'Desayuno' },
     Ubicacion: '',
-    MontoDado: '',
+    MontoDado: '', // ✅ Campo presente
     FotoURL: ''
   });
   
@@ -44,11 +44,9 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
     if (viaticoExistente) {
       console.log('📝 Cargando datos del viático para editar:', viaticoExistente);
       
-      // ✅ ELIMINAR la función formatDateForInput de aquí y usar directamente
       setFormData({
         NombreTecnico: viaticoExistente.NombreTecnico || '',
         Telefono: viaticoExistente.Telefono || '',
-        // ✅ Usar las fechas directamente - el DateTimeInput se encargará de la conversión
         FechaEntrada: viaticoExistente.FechaEntrada ? new Date(viaticoExistente.FechaEntrada) : null,
         FechaSalida: viaticoExistente.FechaSalida ? new Date(viaticoExistente.FechaSalida) : null,
         Cliente: viaticoExistente.Cliente || '',
@@ -56,7 +54,7 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
         Hospedaje: viaticoExistente.Hospedaje || { monto: '', nombre: '' },
         Comida: viaticoExistente.Comida || { monto: '', tipo: 'Desayuno' },
         Ubicacion: viaticoExistente.Ubicacion || '',
-        MontoDado: viaticoExistente.MontoDado || '',
+        MontoDado: viaticoExistente.MontoDado || '', // ✅ Cargando MontoDado existente
         FotoURL: viaticoExistente.FotoURL || ''
       });
 
@@ -89,12 +87,10 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
       [campo]: valor
     }));
     
-    // Limpiar error si existe
     if (errors[campo]) {
       setErrors(prev => ({ ...prev, [campo]: '' }));
     }
     
-    // Validar que fecha de salida sea posterior a entrada
     if (campo === 'FechaEntrada' && formData.FechaSalida) {
       if (!validarFechas(valor, formData.FechaSalida)) {
         setErrors(prev => ({ 
@@ -121,17 +117,21 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
   };
 
   const agregarMovilizacion = () => {
-    if (!nuevaMovilizacion.tipo || !nuevaMovilizacion.montoIda || !nuevaMovilizacion.montoVuelta) {
-      alert('Por favor complete todos los campos de movilización');
+    if (!nuevaMovilizacion.tipo || !nuevaMovilizacion.montoIda) {
+      alert('Por favor complete el tipo y monto de ida de movilización');
       return;
     }
 
+    const movilizacionCompleta = {
+      ...nuevaMovilizacion,
+      montoVuelta: nuevaMovilizacion.montoVuelta || '0'
+    };
+
     setFormData(prev => ({
       ...prev,
-      Movilizacion: [...prev.Movilizacion, { ...nuevaMovilizacion }]
+      Movilizacion: [...prev.Movilizacion, movilizacionCompleta]
     }));
 
-    // Resetear formulario de nueva movilización
     setNuevaMovilizacion({
       tipo: 'Bus',
       montoIda: '',
@@ -146,8 +146,6 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
       Movilizacion: prev.Movilizacion.filter((_, i) => i !== index)
     }));
   };
-
-
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -179,16 +177,6 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
   };
 
   const handleRemoveExistingFile = async (index) => {
-    const fotoAEliminar = existingFiles[index];
-    
-    if (isEditing && viaticoExistente?._id) {
-        try {
-            console.log('🗑️ Eliminando foto del backend:', index);
-        } catch (error) {
-            console.error('Error eliminando foto:', error);
-        }
-    }
-    
     setExistingFiles(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -209,21 +197,39 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.NombreTecnico) newErrors.NombreTecnico = 'Nombre es requerido';
+    // ✅ Validaciones básicas
+    if (!formData.NombreTecnico.trim()) newErrors.NombreTecnico = 'Nombre es requerido';
     if (!formData.Telefono) newErrors.Telefono = 'Teléfono es requerido';
     if (!formData.FechaEntrada) newErrors.FechaEntrada = 'Fecha de entrada es requerida';
     if (!formData.FechaSalida) newErrors.FechaSalida = 'Fecha de salida es requerida';
-    if (!formData.Cliente) newErrors.Cliente = 'Cliente es requerido';
-    if (!formData.Ubicacion) newErrors.Ubicacion = 'Ubicación es requerida';
-    if (!formData.MontoDado) newErrors.MontoDado = 'Monto dado es requerido';
+    if (!formData.Cliente.trim()) newErrors.Cliente = 'Cliente es requerido';
+    if (!formData.Ubicacion.trim()) newErrors.Ubicacion = 'Ubicación es requerida';
+    if (!formData.MontoDado || parseFloat(formData.MontoDado) <= 0) newErrors.MontoDado = 'Monto dado es requerido y mayor a 0';
     
+    // ✅ Validar movilización
     if (formData.Movilizacion.length === 0) {
       newErrors['Movilizacion'] = 'Debe agregar al menos un medio de movilización';
     }
 
-    if (!formData.Hospedaje.monto) newErrors['Hospedaje.monto'] = 'Monto de hospedaje es requerido';
-    if (!formData.Hospedaje.nombre) newErrors['Hospedaje.nombre'] = 'Nombre de hospedaje es requerido';
-    if (!formData.Comida.monto) newErrors['Comida.monto'] = 'Monto de comida es requerido';
+    // ✅ Validar hospedaje
+    if (!formData.Hospedaje.monto || parseFloat(formData.Hospedaje.monto) < 0) {
+      newErrors['Hospedaje.monto'] = 'Monto de hospedaje es requerido';
+    }
+    if (!formData.Hospedaje.nombre.trim()) {
+      newErrors['Hospedaje.nombre'] = 'Nombre de hospedaje es requerido';
+    }
+
+    // ✅ Validar comida
+    if (!formData.Comida.monto || parseFloat(formData.Comida.monto) < 0) {
+      newErrors['Comida.monto'] = 'Monto de comida es requerido';
+    }
+    
+    // ✅ Validar fechas
+    if (formData.FechaEntrada && formData.FechaSalida) {
+      if (!validarFechas(formData.FechaEntrada, formData.FechaSalida)) {
+        newErrors.FechaSalida = 'La fecha de salida debe ser posterior a la fecha de entrada';
+      }
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -232,36 +238,44 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      console.log('❌ Errores de validación:', errors);
+      return;
+    }
 
     if (isLoading) {
-        console.log('⏳ Ya se está enviando el formulario...');
-        return;
+      console.log('⏳ Ya se está enviando el formulario...');
+      return;
     }
 
     try {
       const formDataToSend = new FormData();
       
-      formDataToSend.append('NombreTecnico', formData.NombreTecnico);
+      // ✅ Información básica
+      formDataToSend.append('NombreTecnico', formData.NombreTecnico.trim());
       formDataToSend.append('Telefono', parseInt(formData.Telefono));
-      formDataToSend.append('FechaEntrada', formData.FechaEntrada ? formData.FechaEntrada.toISOString() : '');
-      formDataToSend.append('FechaSalida', formData.FechaSalida ? formData.FechaSalida.toISOString() : '');
-      formDataToSend.append('Cliente', formData.Cliente);
-      formDataToSend.append('Ubicacion', formData.Ubicacion);
-      formDataToSend.append('MontoDado', parseFloat(formData.MontoDado));
+      formDataToSend.append('FechaEntrada', formData.FechaEntrada.toISOString());
+      formDataToSend.append('FechaSalida', formData.FechaSalida.toISOString());
+      formDataToSend.append('Cliente', formData.Cliente.trim());
+      formDataToSend.append('Ubicacion', formData.Ubicacion.trim());
+      formDataToSend.append('MontoDado', parseFloat(formData.MontoDado)); // ✅ Incluyendo MontoDado
 
+      // ✅ Movilización
       formDataToSend.append('Movilizacion', JSON.stringify(formData.Movilizacion));
       
+      // ✅ Hospedaje
       formDataToSend.append('Hospedaje', JSON.stringify({
         monto: parseFloat(formData.Hospedaje.monto),
-        nombre: formData.Hospedaje.nombre
+        nombre: formData.Hospedaje.nombre.trim()
       }));
       
+      // ✅ Comida
       formDataToSend.append('Comida', JSON.stringify({
         monto: parseFloat(formData.Comida.monto),
         tipo: formData.Comida.tipo
       }));
 
+      // ✅ Fotos y firma
       formDataToSend.append('fotosExistentes', JSON.stringify(existingFiles));
       
       if (formData.FotoURL) {
@@ -270,18 +284,16 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
 
       if (signature) {
         formDataToSend.append('firma', signature);
-        console.log('📝 Firma incluida en el formulario');
       }
 
-      selectedFiles.forEach((file, index) => {
+      selectedFiles.forEach((file) => {
         formDataToSend.append('foto', file);
       });
 
+      // ✅ Enviar al backend
       if (isEditing) {
-        console.log('🔄 Actualizando viático existente:', viaticoExistente._id);
         await updateViatico(viaticoExistente._id, formDataToSend);
       } else {
-        console.log('🆕 Creando nuevo viático');
         await createViaticoWithImages(formDataToSend);
       }
       
@@ -290,15 +302,17 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
       
     } catch (error) {
       console.error(`Error al ${isEditing ? 'actualizar' : 'crear'} viático:`, error);
+      alert(`Error: ${error.message}`);
     }
   };
 
   const calcularTotalGastado = () => {
-    const movilizacion = calcularTotalMovilizacion(); // ✅ Usar la función que ya tienes
+    const movilizacion = calcularTotalMovilizacion();
     const hospedaje = parseFloat(formData.Hospedaje.monto) || 0;
     const comida = parseFloat(formData.Comida.monto) || 0;
     return movilizacion + hospedaje + comida;
   };
+
   const calcularDiferencia = () => {
     const montoDado = parseFloat(formData.MontoDado) || 0;
     return montoDado - calcularTotalGastado();
@@ -407,7 +421,40 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
               </div>
             </div>
 
-            {/* Gastos */}
+            {/* ✅ MONTO DADO - SECCIÓN MEJORADA */}
+            <div className="bg-green-50 p-4 rounded-lg border-2 border-green-300 shadow-sm">
+              <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+                Monto Entregado al Técnico
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-green-700 mb-1">
+                    Monto Dado (Q) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="MontoDado"
+                    value={formData.MontoDado}
+                    onChange={handleChange}
+                    className={`w-full px-3 py-2 border-2 rounded-md ${errors.MontoDado ? 'border-red-500' : 'border-green-400'}`}
+                    placeholder="0.00"
+                    min="0"
+                  />
+                  {errors.MontoDado && <p className="text-red-500 text-sm mt-1">{errors.MontoDado}</p>}
+                </div>
+                <div className="flex items-center">
+                  <p className="text-sm text-green-700 bg-green-100 p-2 rounded">
+                    <strong>Importante:</strong> Este es el monto total que se le entrega al técnico para cubrir todos sus gastos (movilización, hospedaje y comida).
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Movilización */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">
                 Movilización - Múltiples Medios
@@ -450,12 +497,13 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
                     onChange={handleMovilizacionChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                     placeholder="0.00"
+                    min="0"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Monto Vuelta (Q) *
+                    Monto Vuelta (Q)
                   </label>
                   <input
                     type="number"
@@ -464,7 +512,8 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
                     value={nuevaMovilizacion.montoVuelta}
                     onChange={handleMovilizacionChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    placeholder="0.00"
+                    placeholder="0.00 (opcional)"
+                    min="0"
                   />
                 </div>
 
@@ -510,9 +559,10 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
                         <button
                           type="button"
                           onClick={() => eliminarMovilizacion(index)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 hover:text-red-800 text-lg font-bold"
+                          title="Eliminar movilización"
                         >
-                          × Eliminar
+                          ×
                         </button>
                       </div>
                     ))}
@@ -524,14 +574,14 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
               )}
             </div>
 
-            {/* Gastos Restantes */}
+            {/* Hospedaje y Comida */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Hospedaje */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Hospedaje</h3>
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h3 className="text-lg font-semibold text-blue-800 mb-4">Hospedaje</h3>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Monto Hospedaje *
+                  <label className="block text-sm font-medium text-blue-700 mb-1">
+                    Monto Hospedaje (Q) *
                   </label>
                   <input
                     type="number"
@@ -539,17 +589,21 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
                     name="Hospedaje.monto"
                     value={formData.Hospedaje.monto}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-md ${errors['Hospedaje.monto'] ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 border rounded-md ${errors['Hospedaje.monto'] ? 'border-red-500' : 'border-blue-300'}`}
                     placeholder="0.00"
+                    min="0"
                   />
                   {errors['Hospedaje.monto'] && <p className="text-red-500 text-sm mt-1">{errors['Hospedaje.monto']}</p>}
                   
+                  <label className="block text-sm font-medium text-blue-700 mb-1 mt-2">
+                    Nombre del Hotel/Lugar *
+                  </label>
                   <input
                     type="text"
                     name="Hospedaje.nombre"
                     value={formData.Hospedaje.nombre}
                     onChange={handleChange}
-                    className={`w-full mt-2 px-3 py-2 border rounded-md ${errors['Hospedaje.nombre'] ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 border rounded-md ${errors['Hospedaje.nombre'] ? 'border-red-500' : 'border-blue-300'}`}
                     placeholder="Nombre del hotel"
                   />
                   {errors['Hospedaje.nombre'] && <p className="text-red-500 text-sm mt-1">{errors['Hospedaje.nombre']}</p>}
@@ -557,11 +611,11 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
               </div>
 
               {/* Comida */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Comida</h3>
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <h3 className="text-lg font-semibold text-orange-800 mb-4">Comida</h3>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Monto Comida *
+                  <label className="block text-sm font-medium text-orange-700 mb-1">
+                    Monto Comida (Q) *
                   </label>
                   <input
                     type="number"
@@ -569,16 +623,20 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
                     name="Comida.monto"
                     value={formData.Comida.monto}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-md ${errors['Comida.monto'] ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 border rounded-md ${errors['Comida.monto'] ? 'border-red-500' : 'border-orange-300'}`}
                     placeholder="0.00"
+                    min="0"
                   />
                   {errors['Comida.monto'] && <p className="text-red-500 text-sm mt-1">{errors['Comida.monto']}</p>}
                   
+                  <label className="block text-sm font-medium text-orange-700 mb-1 mt-2">
+                    Tipo de Comida *
+                  </label>
                   <select
                     name="Comida.tipo"
                     value={formData.Comida.tipo}
                     onChange={handleChange}
-                    className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md"
+                    className="w-full px-3 py-2 border border-orange-300 rounded-md"
                   >
                     <option value="Desayuno">Desayuno</option>
                     <option value="Almuerzo">Almuerzo</option>
@@ -588,24 +646,47 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
               </div>
             </div>
 
-            {/* Monto Dado y Resumen */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">Resumen</h4>
-              <div className="space-y-1 text-sm">
-                <p>Total Movilización: <strong>Q{calcularTotalMovilizacion().toFixed(2)}</strong></p>
-                <p>Total Hospedaje: <strong>Q{(parseFloat(formData.Hospedaje.monto) || 0).toFixed(2)}</strong></p>
-                <p>Total Comida: <strong>Q{(parseFloat(formData.Comida.monto) || 0).toFixed(2)}</strong></p>
-                <p className="font-medium border-t pt-1">Total Gastado: <strong>Q{calcularTotalGastado().toFixed(2)}</strong></p>
-                <p className="font-medium">
-                  Diferencia: 
-                  <strong className={calcularDiferencia() >= 0 ? 'text-green-600' : 'text-red-600'}>
-                    Q{Math.abs(calcularDiferencia()).toFixed(2)} {calcularDiferencia() >= 0 ? '(Ahorro)' : '(Sobregasto)'}
-                  </strong>
-                </p>
+            {/* Resumen Financiero */}
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+              <h4 className="font-semibold text-purple-800 mb-2">Resumen Financiero</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Total Movilización:</span>
+                    <strong>Q{calcularTotalMovilizacion().toFixed(2)}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Hospedaje:</span>
+                    <strong>Q{(parseFloat(formData.Hospedaje.monto) || 0).toFixed(2)}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Comida:</span>
+                    <strong>Q{(parseFloat(formData.Comida.monto) || 0).toFixed(2)}</strong>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 font-medium">
+                    <span>Total Gastado:</span>
+                    <strong>Q{calcularTotalGastado().toFixed(2)}</strong>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Monto Dado al Técnico:</span>
+                    <strong className="text-green-600">Q{(parseFloat(formData.MontoDado) || 0).toFixed(2)}</strong>
+                  </div>
+                  <div className={`flex justify-between border-t pt-2 font-medium text-lg ${
+                    calcularDiferencia() >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    <span>Diferencia:</span>
+                    <strong>
+                      Q{Math.abs(calcularDiferencia()).toFixed(2)} 
+                      {calcularDiferencia() >= 0 ? ' (Ahorro)' : ' (Sobregasto)'}
+                    </strong>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* ✅ NUEVO: Mostrar fotos existentes */}
+            {/* Fotos existentes */}
             {existingFiles.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -635,7 +716,7 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
             {/* Subida de Fotos */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {isEditing ? 'Agregar más fotos' : 'Fotos del viático'} {/* ✅ NUEVO: Texto dinámico */}
+                {isEditing ? 'Agregar más fotos' : 'Fotos del viático'}
               </label>
               <input
                 type="file"
@@ -649,11 +730,6 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
                   <p className="text-sm text-gray-600">
                     {selectedFiles.length} archivo(s) seleccionado(s)
                   </p>
-                  <ul className="text-xs text-gray-500 mt-1">
-                    {selectedFiles.map((file, index) => (
-                      <li key={index}>{file.name}</li>
-                    ))}
-                  </ul>
                 </div>
               )}
             </div>
@@ -666,7 +742,7 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
               <SignatureCanvas
                 onSave={handleSignatureSave}
                 onClear={handleSignatureClear}
-                existingSignature={signature} // ✅ NUEVO: Pasar firma existente
+                existingSignature={signature}
               />
             </div>
 
@@ -675,7 +751,7 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                className="px-6 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 font-medium"
                 disabled={isLoading}
               >
                 Cancelar
@@ -683,9 +759,9 @@ export const ViaticosForm = ({ onClose, onSuccess, viaticoExistente }) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 font-medium"
               >
-                {isLoading ? 'Guardando...' : (isEditing ? 'Actualizar Viático' : 'Crear Viático')} {/* ✅ NUEVO: Texto dinámico */}
+                {isLoading ? 'Guardando...' : (isEditing ? 'Actualizar Viático' : 'Crear Viático')}
               </button>
             </div>
           </form>
